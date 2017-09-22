@@ -1,11 +1,15 @@
 package com.oab.orange.aichatbot;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.speech.tts.TextToSpeech;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -24,6 +28,7 @@ import com.google.gson.JsonElement;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 
 import ai.api.AIListener;
 import ai.api.android.AIConfiguration;
@@ -41,11 +46,12 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
     private  User me;
     private User you;
     private TextToSpeech tts;
-
+    private ConnectivityManager conMgr;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        conMgr = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         AIserviceinit();
         tts = new TextToSpeech(this, this);
         tts.setSpeechRate(1f);
@@ -78,7 +84,7 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
         String myName = "salouh";
 
         int yourId = 1;
-        Bitmap yourIcon = BitmapFactory.decodeResource(getResources(), R.drawable.face_1);
+        Bitmap yourIcon = BitmapFactory.decodeResource(getResources(), R.drawable.chatbot);
         String yourName = "chatbot";
 
         me = new User(myId, myName, myIcon);
@@ -129,7 +135,11 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                     {if (ContextCompat.checkSelfPermission(MainActivity.this,
                         Manifest.permission.RECORD_AUDIO)
                         == PackageManager.PERMISSION_GRANTED) {
-                        aiService.startListening();
+                        if (conMgr.getNetworkInfo(ConnectivityManager.TYPE_MOBILE).getState() == NetworkInfo.State.CONNECTED
+                                || conMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI).getState() == NetworkInfo.State.CONNECTED  )
+                            aiService.startListening();
+                        else
+                            showtoast("vous devez avoir accès à internet");
                     } else {
                         ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.RECORD_AUDIO}, 100);
                         }
@@ -144,7 +154,12 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                 }
                 else
                     if(mChatView.getInputText().isEmpty())
-                        aiService.startListening();
+                        if (conMgr.getNetworkInfo(ConnectivityManager.TYPE_MOBILE).getState() == NetworkInfo.State.CONNECTED
+                                || conMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI).getState() == NetworkInfo.State.CONNECTED  )
+                            aiService.startListening();
+                        else
+                            showtoast("vous devez avoir accès à internet");
+
                     else
                     {
                         String msg=mChatView.getInputText();
@@ -166,6 +181,16 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
         mChatView.send(message);
         mChatView.setInputText("");
         mChatView.clearFocus();
+    }
+
+    private void receivemessage(String InputText)
+    {
+        final Message receivedMessage = new Message.Builder()
+                .setUser(you)
+                .setRightMessage(false)
+                .setMessageText(InputText)
+                .build();
+        mChatView.receive(receivedMessage);
     }
 
 
@@ -192,7 +217,7 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
 
     @Override
     public void onResult(AIResponse response) {
-        Result result = response.getResult();
+        final Result result = response.getResult();
 
         // Get parameters
         String parameterString = "";
@@ -201,27 +226,30 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                 parameterString += "(" + entry.getKey() + ", " + entry.getValue() + ") ";
             }
         }
-        //new message
-        Message message = new Message.Builder()
-                .setUser(me)
-                .setRightMessage(true)
-                .setMessageText(result.getResolvedQuery())
-                .hideIcon(false)
-                .build();
-        //Set to chat view
-        mChatView.send(message);
-        speakOut(result.getResolvedQuery());
+        sendmessage(result.getResolvedQuery());
         //Reset edit text
         mChatView.setInputText("");
 
+        int sendDelay = (new Random().nextInt(4) + 1) * 1000;
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                String fullfillment =result.getFulfillment().getSpeech().toString();
+                receivemessage(fullfillment);
+                speakOut(fullfillment);
+            }
+        }, sendDelay);
+
         switch(result.getAction())
         {
-            case "reservation":
+            case "reservation.salle":
                 Toast.makeText(this,"activité de réservation lancée",Toast.LENGTH_LONG).show();
                 break;
             default:
-                Toast.makeText(this,result.getResolvedQuery(),Toast.LENGTH_LONG).show();
+//                Toast.makeText(this,result.getResolvedQuery(),Toast.LENGTH_LONG).show();
         }
+
+
     }
 
     @Override
@@ -245,6 +273,10 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
         dialog= builder.create();
         dialog.show();
 
+    }
+    private void showtoast(String msg)
+    {
+        Toast.makeText(this,msg,Toast.LENGTH_LONG).show();
     }
 
     @Override
