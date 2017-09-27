@@ -26,15 +26,23 @@ import com.github.bassaer.chatmessageview.models.User;
 import com.github.bassaer.chatmessageview.views.ChatView;
 import com.google.gson.JsonElement;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
 import ai.api.AIListener;
+import ai.api.AIServiceException;
+import ai.api.RequestExtras;
 import ai.api.android.AIConfiguration;
 import ai.api.android.AIService;
 import ai.api.model.AIError;
 import ai.api.model.AIResponse;
+import ai.api.model.Entity;
+import ai.api.model.EntityEntry;
+import ai.api.model.Location;
 import ai.api.model.Result;
 
 public class MainActivity extends AppCompatActivity implements AIListener,TextToSpeech.OnInitListener {
@@ -43,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
     private AlertDialog.Builder builder;
     private AlertDialog dialog;
     private ChatView mChatView;
-    private  User me;
+    private User me;
     private User you;
     private TextToSpeech tts;
     private ConnectivityManager conMgr;
@@ -54,7 +62,7 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
         conMgr = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
         AIserviceinit();
         tts = new TextToSpeech(this, this);
-        tts.setSpeechRate(1f);
+        tts.setSpeechRate(0.8f);
         mChatView = (ChatView) findViewById(R.id.chat_view);
 
         iniChatInterface();
@@ -137,7 +145,31 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                         == PackageManager.PERMISSION_GRANTED) {
                         if (conMgr.getNetworkInfo(ConnectivityManager.TYPE_MOBILE).getState() == NetworkInfo.State.CONNECTED
                                 || conMgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI).getState() == NetworkInfo.State.CONNECTED  )
-                            aiService.startListening();
+                        {
+                            RequestExtras requestExtras=new RequestExtras();
+
+                            requestExtras.setContexts(null);
+
+                            HashMap<String,String> map=new HashMap<String, String>();
+                            map.put("username","admin");
+                            map.put("password","admin") ;
+                            requestExtras.setAdditionalHeaders(null);
+                            requestExtras.setResetContexts(true);
+
+                            List<Entity> list= new ArrayList<>();
+                            Entity username=new Entity();
+                            Entity password=new Entity();
+                            username.setName("username");
+                            password.setName("Password");
+                            List<EntityEntry> userentry=new ArrayList<>();
+                            userentry.add(new EntityEntry("admin",new String[]{"admin","ADMIN"}));
+                            username.setEntries(userentry);
+                            password.setEntries(userentry);
+                            requestExtras.setEntities(list);
+
+                            aiService.startListening(requestExtras);
+
+                        }
                         else
                             showtoast("vous devez avoir accès à internet");
                     } else {
@@ -176,6 +208,7 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                 .setRightMessage(true)
                 .setMessageText(inputText)
                 .hideIcon(true)
+                .setUsernameVisibility(false)
                 .build();
         //Set to chat view
         mChatView.send(message);
@@ -202,7 +235,6 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
                     aiService.startListening();
 
                 } else {
@@ -218,7 +250,10 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
     @Override
     public void onResult(AIResponse response) {
         final Result result = response.getResult();
-
+        Log.d("result:API.AI==> ",response.getResult().toString());
+        Log.d("result.context:API.AI==> ",result.getContexts().toString());
+        Log.d("result.metadata:API.AI==> ",result.getMetadata().toString());
+        Log.d("result.fulfillment:API.AI==> ",result.getFulfillment().toString());
         // Get parameters
         String parameterString = "";
         if (result.getParameters() != null && !result.getParameters().isEmpty()) {
@@ -226,6 +261,8 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                 parameterString += "(" + entry.getKey() + ", " + entry.getValue() + ") ";
             }
         }
+        Log.d("result.parameters:API.AI==> ",parameterString);
+
         sendmessage(result.getResolvedQuery());
         //Reset edit text
         mChatView.setInputText("");
