@@ -131,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
                 else
                 {
                     mChatView.setSendIcon(R.drawable.ic_action_send);
+                    mChatView.setEnableSendButton(false);
                 }
             }
         });
@@ -150,21 +151,17 @@ public class MainActivity extends AppCompatActivity implements AIListener,TextTo
 
                             requestExtras.setContexts(null);
 
-                            HashMap<String,String> map=new HashMap<String, String>();
-                            map.put("username","admin");
-                            map.put("password","admin") ;
                             requestExtras.setAdditionalHeaders(null);
                             requestExtras.setResetContexts(true);
 
                             List<Entity> list= new ArrayList<>();
-                            Entity username=new Entity();
-                            Entity password=new Entity();
-                            username.setName("username");
-                            password.setName("Password");
                             List<EntityEntry> userentry=new ArrayList<>();
-                            userentry.add(new EntityEntry("admin",new String[]{"admin","ADMIN"}));
+                            List<String> synonym= new ArrayList<>();
+                            synonym.add("admin");
+                            synonym.add("ADMIN");
+                            userentry.add(new EntityEntry("admin",synonym));
+                            Entity username=new Entity("admin");
                             username.setEntries(userentry);
-                            password.setEntries(userentry);
                             requestExtras.setEntities(list);
 
                             aiService.startListening(requestExtras);

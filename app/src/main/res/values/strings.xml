@@ -1,4 +1,6 @@
 <resources>
-    <string name="app_name">AIchatBot</string>
+    <string name="app_name">assistant</string>
     <string name="clientkeyai">e1d3f51052514712afff0564989b5d9d</string>
+    <string name="title_activity_composing_msg_activity">Composing_msg_activity</string>
+    <string name="empty_message">Message vide</string>
 </resources>
